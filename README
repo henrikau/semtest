@@ -1,0 +1,115 @@
+#	semtest
+
+A very hackish test for measuring the latency of (posix) semaphores on a
+Linux system.
+
+It will create a set of thread-pairs. The latency for
+semaphore-synchronization is measured and some (meaningful) statistics
+is printed at the end fo the testrun.
+
+## Compile
+
+sudo apt-get install build-essentials
+make
+
+## Run
+
+./semtest -h
+Usage:
+semtest <options>
+
+-a       --affinity      bind tasks to cores explicitly
+-A       --no_affinity   do not set affinity, let the scheduler move tasks
+-i ITER  --iterations    run threads for ITER iterations
+-h       --help          show this help
+-n CPUS  --num_cpus      test on number of cores
+-p PRIO  --priority      run with given (real-time) priority
+-r       --policy_rr     use SCHED_RR instead of the default SCHED_FIFO for rt-priorities
+
+
+# On an idle system with 4 cores + HT (Intel E5620, CentOS 6.3, Linux
+  2.6.32), you may see something like this:
+
+./semtest -i 10000
+
+Starting test:
+Affinity:       On
+Iterations:     10000
+num_cpus:       8
+Priority:       0
+Policy:         SCHED_OTHER
+Summary of 10000 iterations
+P:  0, 6        Pri: 0  Max:         303        Min:           5
+P:  1, 5        Pri: 0  Max:         173        Min:           4
+P:  2, 7        Pri: 0  Max:         154        Min:           5
+P:  3, 2        Pri: 0  Max:         348        Min:           5
+P:  4, 4        Pri: 0  Max:         196        Min:           5
+P:  5, 1        Pri: 0  Max:         140        Min:           5
+P:  6, 0        Pri: 0  Max:         157        Min:           5
+P:  7, 3        Pri: 0  Max:         151        Min:           5
+(Max) Global:          348 usvg: 202.7500 us    middle: 165.000000
+(Min) Global:            5 usvg: 4.8750 us      middle: 5.000000
+Test took 0 hours 0 mins 11.57402 secs to complete
+
+sudo ./semtest -i 10000 -p90
+
+Starting test:
+Affinity:       On
+Iterations:     10000
+num_cpus:       8
+Priority:       90
+Policy:         SCHED_FIFO
+Summary of 10000 iterations
+P:  0, 7        Pri: 90 Max:         248        Min:           3
+P:  1, 6        Pri: 90 Max:         198        Min:           3
+P:  2, 5        Pri: 90 Max:         183        Min:           3
+P:  3, 2        Pri: 90 Max:         195        Min:           4
+P:  4, 1        Pri: 90 Max:         236        Min:           4
+P:  5, 4        Pri: 90 Max:         264        Min:           3
+P:  6, 3        Pri: 90 Max:         201        Min:           3
+P:  7, 0        Pri: 90 Max:         304        Min:           4
+(Max) Global:          304 usvg: 228.6250 us    middle: 218.500000
+(Min) Global:            4 usvg: 3.3750 us      middle: 3.000000
+Test took 0 hours 0 mins 10.734532 secs to complete
+
+
+# Correspondingly, on a loaded system (building a linux-kernel with -j <avail_cpus>
+
+Starting test:
+Affinity:       On
+Iterations:     10000
+num_cpus:       8
+Priority:       0
+Policy:         SCHED_OTHER
+Summary of 10000 iterations
+P:  0, 3        Pri: 0  Max:        6363        Min:           4
+P:  1, 0        Pri: 0  Max:        5364        Min:           4
+P:  2, 7        Pri: 0  Max:        9430        Min:           4
+P:  3, 1        Pri: 0  Max:        6573        Min:           3
+P:  4, 5        Pri: 0  Max:        5207        Min:           4
+P:  5, 6        Pri: 0  Max:        2334        Min:           4
+P:  6, 4        Pri: 0  Max:        4427        Min:           4
+P:  7, 2        Pri: 0  Max:        7584        Min:           4
+(Max) Global:         9430 usvg: 5910.2500 us   middle: 5863.500000
+(Min) Global:            4 usvg: 3.8750 us      middle: 4.000000
+
+
+sudo ./semtest -i 10000 -p90
+STARTING test:
+Affinity:       On
+Iterations:     10000
+num_cpus:       8
+Priority:       90
+Policy:         SCHED_FIFO
+Summary of 10000 iterations
+P:  0, 3        Pri: 90 Max:         542        Min:           3
+P:  1, 4        Pri: 90 Max:         524        Min:           3
+P:  2, 0        Pri: 90 Max:         519        Min:           3
+P:  3, 5        Pri: 90 Max:         985        Min:           3
+P:  4, 6        Pri: 90 Max:         531        Min:           3
+P:  5, 2        Pri: 90 Max:         499        Min:           3
+P:  6, 1        Pri: 90 Max:         553        Min:           3
+P:  7, 7        Pri: 90 Max:         988        Min:           4
+(Max) Global:          988 usvg: 642.6250 us    middle: 536.500000
+(Min) Global:            4 usvg: 3.1250 us      middle: 3.000000
+Test took 0 hours 0 mins 10.221402 secs to complete
