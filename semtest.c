@@ -273,7 +273,7 @@ static void _set_affinity(int cpu)
 	cpu_set_t mask;
 	pthread_t thread = pthread_self();
 	CPU_ZERO(&mask);
-	CPU_SET(thread, &mask);
+	CPU_SET(cpu, &mask);
 	if (pthread_setaffinity_np(thread, sizeof(mask), &mask) == -1) {
 		fprintf(stderr, "Could not set affinity for thread %ld, will ignore to avoid deadlock\n", gettid());
 	}
