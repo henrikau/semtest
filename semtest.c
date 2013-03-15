@@ -37,7 +37,7 @@ struct sem_pair {
 	int idpolo;					/* CPU of replier */
 	sem_t polo;
 	sem_t marco;
-
+	signed long trace_limit_us;
 	pthread_t tpolo;
 	pthread_t tmarco;
 	int policy;
@@ -54,6 +54,7 @@ struct sem_pair {
 struct sem_test {
 	unsigned int num_cpus;
 	unsigned int iters;
+	unsigned char trace_on;
 	int policy;
 	int prio;
 	unsigned long long start;
@@ -88,9 +89,9 @@ struct sem_test * create_sem_test(uint32_t num_cpus,
 		return NULL;
 	}
 	st->num_cpus = num_cpus;
+	st->trace_on = 0;
 	st->policy = policy;
 	st->prio = prio;
-
 	for (i=0;i<st->num_cpus;i++) {
 		_init_sem_pair(&st->sp[i]);
 	}
@@ -114,6 +115,17 @@ void free_sem_test(struct sem_test *sp)
 	}
 }
 
+void enable_tracing(struct sem_test *st, signed long trace_limit_us)
+{
+	int c = 0;
+	if (!st)
+		return;
+	/* if not mounted, throw error, we don't want to mount this from inside the application */
+	for(;c<st->num_cpus;c++) {
+		st->sp[c].trace_limit_us = trace_limit_us;
+	}
+	st->trace_on = 1;
+}
 
 void run_test(struct sem_test *st, uint32_t iters)
 {
@@ -230,6 +242,7 @@ static void _init_sem_pair(struct sem_pair *sp)
 	sp->max_us = 0;
 	sp->policy = SCHED_OTHER;
 	sp->prio = 0;
+	sp->trace_limit_us = -1;
 }
 
 static uint64_t _now64_us(void)
@@ -309,10 +322,13 @@ void * marco(void *data)
 {
 	struct sem_pair *pair = (struct sem_pair *)data;
 	uint64_t start,stop,diff;
-
+	unsigned long long tlus = 0;
 	if (!pair)
 		return NULL;
 
+	if (pair->trace_limit_us > 0) {
+		tlus = pair->trace_limit_us;
+	}
 	if (pair->idmarco > -1) {
 		_set_affinity(pair->idmarco);
 	}
@@ -332,6 +348,15 @@ void * marco(void *data)
 			pair->max_us = diff;
 		if (diff < pair->min_us)
 			pair->min_us = diff;
+		if (diff > tlus) {
+			FILE *fd = NULL;
+			fd = fopen("/sys/kernel/debug/tracing/trace_marker", "w+");
+			if (fd) {
+				fprintf(fd, "semtest latency (%llu) exceeded target latency (%llu), P: %d,%d\n",
+						(unsigned long long)diff, tlus,pair->idmarco, pair->idpolo);
+				fclose(fd);
+			}
+		}
 		pair->sum_us+=diff;
 		pair->ctr--;
 		usleep(1000);

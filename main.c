@@ -26,6 +26,7 @@ static unsigned int num_cpus = 0;
 static int policy = SCHED_FIFO;
 static int prio = 0;
 static unsigned int iters = 10000; /* 10k */
+static signed long trace_limit = 0;
 
 void show_help(void)
 {
@@ -38,6 +39,7 @@ void show_help(void)
 		   "-n CPUS  --num_cpus      test on number of cores\n"
 		   "-p PRIO  --priority      run with given (real-time) priority\n"
 		   "-r       --policy_rr     use SCHED_RR instead of the default SCHED_FIFO for rt-priorities\n"
+		   "-t LIMIT --event_trace   enable event-tracing when running, tag occurences exceeding LIMIT us\n"
 		   "\n"
 		);
 }
@@ -55,9 +57,10 @@ void do_options(int argc, char *argv[])
 			{ "num_cpus",		optional_argument, NULL, 'n'},
 			{ "priority",		optional_argument, NULL, 'p'},
 			{ "policy_rr",		optional_argument, NULL, 'r'},
+			{ "event_trace",    optional_argument, NULL, 't'},
 			{ NULL, 0, NULL, 0}
 		};
-		int c = getopt_long(argc, argv, "aAhi:n:p:r", long_opts, &optidx);
+		int c = getopt_long(argc, argv, "aAhi:n:p:rt:", long_opts, &optidx);
 		if (c == -1 || err)
 			break;
 		switch(c) {
@@ -90,6 +93,13 @@ void do_options(int argc, char *argv[])
 		case 'r':
 			policy = SCHED_RR;
 			break;
+		case 't':
+			trace_limit = atoi(optarg);
+			if (trace_limit <= 0) {
+				trace_limit = 0;
+				err = 1;
+			}
+			break;
 		default:
 			/* fixme; error */
 			break;
@@ -108,21 +118,26 @@ int main(int argc, char *argv[])
 {
 	num_cpus =  sysconf(_SC_NPROCESSORS_ONLN);
 	do_options(argc, argv);
-
 	printf("Starting test:\n"
 		   "Affinity:\t%s\n"
 		   "Iterations:\t%d\n"
 		   "num_cpus:\t%d\n"
 		   "Priority:\t%d\n"
-		   "Policy:\t\t%s\n",
+		   "Policy:\t\t%s\n"
+		   "Tracing:\t(%s) %ld\n",
 		   (force_affinity ? "On" : "Off"),
 		   iters,
 		   num_cpus,
 		   prio,
-		   (prio ? (policy == SCHED_FIFO ? "SCHED_FIFO" : "SCHED_RR") : "SCHED_OTHER"));
+		   (prio ? (policy == SCHED_FIFO ? "SCHED_FIFO" : "SCHED_RR") : "SCHED_OTHER"),
+		   (trace_limit == 0 ? "On" : "Off"),
+		   trace_limit);
 
 	struct sem_test *st = create_sem_test(num_cpus, force_affinity, policy, prio);
 
+	if (trace_limit) {
+		enable_tracing(st, trace_limit);
+	}
 	if (st) {
 		run_test(st, iters);
 	}

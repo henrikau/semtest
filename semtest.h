@@ -31,6 +31,8 @@ struct sem_test * create_sem_test(uint32_t num_cpus,
 
 void free_sem_test(struct sem_test *);
 
+void enable_tracing(struct sem_test *st, signed long trace_limit_us);
+
 void run_test(struct sem_test *st, uint32_t iters);
 
 void print_summary(struct sem_test * st);
