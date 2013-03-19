@@ -40,6 +40,8 @@ struct sem_pair {
 	signed long trace_limit_us;
 	pthread_t tpolo;
 	pthread_t tmarco;
+	pid_t pmarco;
+	pid_t ppolo;
 	int policy;
 	int prio;
 
@@ -333,6 +335,7 @@ void * marco(void *data)
 		_set_affinity(pair->idmarco);
 	}
 	_set_priority(pair->prio, pair->policy);
+	pair->pmarco = gettid();
 	pair->start_us = _now64_us();
 	while(pair->ctr > 0) {
 		/* printf("[SENDER >] signaling reader, waiting for reply\n"); */
@@ -352,8 +355,8 @@ void * marco(void *data)
 			FILE *fd = NULL;
 			fd = fopen("/sys/kernel/debug/tracing/trace_marker", "w+");
 			if (fd) {
-				fprintf(fd, "semtest latency (%llu) exceeded target latency (%llu), P: %d,%d\n",
-						(unsigned long long)diff, tlus,pair->idmarco, pair->idpolo);
+				fprintf(fd, "semtest latency (%llu) exceeded target latency (%llu), P: %d,%d, pid:%d,%d\n",
+						(unsigned long long)diff, tlus,pair->idmarco, pair->idpolo, pair->pmarco, pair->ppolo);
 				fclose(fd);
 			}
 		}
@@ -378,6 +381,7 @@ void * polo(void *data)
 	/* task affinity */
 	if (!pair)
 		return NULL;
+	pair->ppolo = gettid();
 	while (pair->ctr > 0) {
 		sem_wait(&pair->polo);
 		sem_post(&pair->marco);
