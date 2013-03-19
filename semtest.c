@@ -33,17 +33,16 @@
 
 /* TODO: clean up this mess, reorganize what is stored where (and why) */
 struct sem_pair {
+	struct sem_test *st;
+
 	int idmarco;					/* CPU of sender */
 	int idpolo;					/* CPU of replier */
 	sem_t polo;
 	sem_t marco;
-	signed long trace_limit_us;
 	pthread_t tpolo;
 	pthread_t tmarco;
 	pid_t pmarco;
 	pid_t ppolo;
-	int policy;
-	int prio;
 
 	uint64_t start_us;
 	uint64_t stop_us;
@@ -56,13 +55,15 @@ struct sem_pair {
 struct sem_test {
 	unsigned int num_cpus;
 	unsigned int iters;
-	unsigned char trace_on;
 	int policy;
 	int pri;
 	unsigned long long start;
 	unsigned long long end;
 	unsigned char force_affinity;
 	unsigned long long cpumask;
+
+	unsigned long trace_limit_us;
+	unsigned char trace_on;
 	struct sem_pair sp[0];
 };
 
@@ -94,12 +95,14 @@ struct sem_test * create_sem_test(uint32_t num_cpus,
 	/* set default values */
 	st->num_cpus = num_cpus;
 	st->trace_on = 0;
+	st->trace_limit_us = -1;
 	st->policy = SCHED_OTHER;
 	st->pri = 0;
 	st->force_affinity = 1;
 	st->iters = 10000;
 	st->cpumask = -1;
 	for (i=0;i<st->num_cpus;i++) {
+		st->sp[i].st = st;
 		_init_sem_pair(&st->sp[i]);
 	}
 	return st;
@@ -161,13 +164,10 @@ void free_sem_test(struct sem_test *st)
 
 void enable_tracing(struct sem_test *st, signed long trace_limit_us)
 {
-	int c = 0;
 	if (!st)
 		return;
 	/* if not mounted, throw error, we don't want to mount this from inside the application */
-	for(;c<st->num_cpus;c++) {
-		st->sp[c].trace_limit_us = trace_limit_us;
-	}
+	st->trace_limit_us = trace_limit_us;
 	st->trace_on = 1;
 }
 
@@ -189,11 +189,6 @@ void run_test(struct sem_test *st)
 		if (!(st->cpumask & (1<<c)))
 			continue;
 		st->sp[c].ctr = st->iters;
-		if ((st->policy == SCHED_RR || st->policy == SCHED_FIFO) &&
-			st->pri > 0 && st->pri < 99) {
-			st->sp[c].policy = st->policy;
-			st->sp[c].prio = st->pri;
-		}
 		if (st->force_affinity && cpuidx) {
 			st->sp[c].idmarco = c;
 			st->sp[c].idpolo = cpuidx[c];
@@ -235,7 +230,7 @@ void print_summary(struct sem_test * st)
 		printf("P: %2d,%2d\tPri: %d\tMax:\t%8llu\tMin:\t%8llu\n",
 			   st->sp[c].idmarco,
 			   st->sp[c].idpolo,
-			   st->sp[c].prio,
+			   st->pri,
 			   st->sp[c].max_us,
 			   st->sp[c].min_us);
 		max_us_sum += st->sp[c].max_us;
@@ -299,12 +294,8 @@ static void _init_sem_pair(struct sem_pair *sp)
 	sem_init(&sp->polo, 0, 0);
 	sp->idmarco = -1;
 	sp->idpolo = -1;
-	sp->prio = -1;
 	sp->min_us = -1;
 	sp->max_us = 0;
-	sp->policy = SCHED_OTHER;
-	sp->prio = 0;
-	sp->trace_limit_us = -1;
 }
 
 static uint64_t _now64_us(void)
@@ -389,13 +380,13 @@ void * marco(void *data)
 	if (!pair)
 		return NULL;
 
-	if (pair->trace_limit_us > 0) {
-		tlus = pair->trace_limit_us;
+	if (pair->st->trace_on) {
+		tlus = pair->st->trace_limit_us;
 	}
 	if (pair->idmarco > -1) {
 		_set_affinity(pair->idmarco);
 	}
-	_set_priority(pair->prio, pair->policy);
+	_set_priority(pair->st->pri, pair->st->policy);
 	pair->pmarco = gettid();
 	pair->start_us = _now64_us();
 	while(pair->ctr > 0) {
@@ -437,7 +428,7 @@ void * polo(void *data)
 	if (pair->idpolo > -1) {
 		_set_affinity(pair->idpolo);
 	}
-	_set_priority(pair->prio, pair->policy);
+	_set_priority(pair->st->pri, pair->st->policy);
 
 	/* task affinity */
 	if (!pair)
