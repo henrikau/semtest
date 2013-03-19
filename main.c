@@ -133,12 +133,13 @@ int main(int argc, char *argv[])
 		   (trace_limit == 0 ? "On" : "Off"),
 		   trace_limit);
 
-	struct sem_test *st = create_sem_test(num_cpus, policy, prio);
+	struct sem_test *st = create_sem_test(num_cpus, policy);
 	if (force_affinity) {
 		st_set_affinity(st);
 	} else {
 		st_clear_affinity(st);
 	}
+	st_set_pri(st, prio);
 
 	if (trace_limit) {
 		enable_tracing(st, trace_limit);

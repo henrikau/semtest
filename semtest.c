@@ -58,7 +58,7 @@ struct sem_test {
 	unsigned int iters;
 	unsigned char trace_on;
 	int policy;
-	int prio;
+	int pri;
 	unsigned long long start;
 	unsigned long long end;
 	unsigned char force_affinity;
@@ -79,8 +79,7 @@ void * polo(void *data);
 void * marco(void *data);
 
 struct sem_test * create_sem_test(uint32_t num_cpus,
-								  int policy,
-								  int prio)
+								  int policy)
 {
 	struct sem_test *st;
 	int i;
@@ -96,7 +95,7 @@ struct sem_test * create_sem_test(uint32_t num_cpus,
 	st->num_cpus = num_cpus;
 	st->trace_on = 0;
 	st->policy = policy;
-	st->prio = prio;
+	st->pri = 0;
 	st->force_affinity = 1;
 	for (i=0;i<st->num_cpus;i++) {
 		_init_sem_pair(&st->sp[i]);
@@ -118,6 +117,12 @@ void st_clear_affinity(struct sem_test *st)
 	st->force_affinity = 0;
 }
 
+void st_set_pri(struct sem_test *st, int pri)
+{
+	if (!st)
+		return;
+	st->pri = pri;
+}
 
 void free_sem_test(struct sem_test *sp)
 {
@@ -155,9 +160,9 @@ void run_test(struct sem_test *st, uint32_t iters)
 	for (c=0;c<st->num_cpus;c++) {
 		st->sp[c].ctr = iters;
 		if ((st->policy == SCHED_RR || st->policy == SCHED_FIFO) &&
-			st->prio > 0 && st->prio < 99) {
+			st->pri > 0 && st->pri < 99) {
 			st->sp[c].policy = st->policy;
-			st->sp[c].prio = st->prio;
+			st->sp[c].prio = st->pri;
 			if (st->force_affinity && cpuidx) {
 				st->sp[c].idmarco = c;
 				st->sp[c].idpolo = cpuidx[c];
