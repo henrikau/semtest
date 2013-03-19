@@ -215,8 +215,8 @@ void run_test(struct sem_test *st)
 void print_summary(struct sem_test * st)
 {
 	int c = 0;
-	unsigned long long max_us = st->sp[0].max_us;
-	unsigned long long min_us = st->sp[0].min_us;
+	unsigned long long max_us = 0;
+	unsigned long long min_us = 0;
 	unsigned long long max_us_sum = 0;
 	unsigned long long min_us_sum = 0;
 	unsigned long long *max_us_list = calloc(st->num_cpus, sizeof(unsigned long long));
@@ -237,10 +237,10 @@ void print_summary(struct sem_test * st)
 		max_us_list[c] = st->sp[c].max_us;
 		min_us_list[c] = st->sp[c].min_us;
 
-		if (max_us < st->sp[c].max_us) {
+		if (!max_us || max_us < st->sp[c].max_us) {
 			max_us = st->sp[c].max_us;
 		}
-		if (min_us < st->sp[c].min_us) {
+		if (!min_us || min_us < st->sp[c].min_us) {
 			min_us = st->sp[c].min_us;
 		}
 	}
