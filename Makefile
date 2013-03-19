@@ -1,7 +1,11 @@
 # Makefile for semtest
-CC=gcc
+
 CFLAGS=-Wall -D_GNU_SOURCE
 LDFLAGS=-lpthread -lrt
+
+# make it possible to make with CROSS_COMPILE as a make-flag
+# i.e. make CROSS_COMPILE=arm-
+CC=$(CROSS_COMPILE)gcc
 
 TARGET=semtest
 DEFAULT: rebuild
