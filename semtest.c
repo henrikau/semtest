@@ -55,6 +55,7 @@ struct sem_pair {
 struct sem_test {
 	unsigned int num_cpus;
 	unsigned int iters;
+	unsigned int interval_us;
 	int policy;
 	int pri;
 	unsigned long long start;
@@ -100,6 +101,7 @@ struct sem_test * create_sem_test(uint32_t num_cpus,
 	st->pri = 0;
 	st->force_affinity = 1;
 	st->iters = 10000;
+	st->interval_us = 10000;		/* 10 ms */
 	st->cpumask = -1;
 	for (i=0;i<st->num_cpus;i++) {
 		st->sp[i].st = st;
@@ -141,6 +143,13 @@ void st_set_iters(struct sem_test *st, int iters)
 	st->iters = iters;
 }
 
+void st_set_interval(struct sem_test *st, int interval)
+{
+	if (!st)
+		return;
+	st->interval_us = interval;
+
+}
 void st_clear_cpu(struct sem_test *st, int cpu)
 {
 	if (!st)
@@ -398,8 +407,10 @@ void * marco(void *data)
 	struct sem_pair *pair = (struct sem_pair *)data;
 	uint64_t start,stop,diff;
 	unsigned long long tlus = 0;
+	unsigned int sleep_us;
 	if (!pair)
 		return NULL;
+	sleep_us = pair->st->interval_us;
 
 	if (pair->st->trace_on) {
 		tlus = pair->st->trace_limit_us;
@@ -435,7 +446,7 @@ void * marco(void *data)
 		}
 		pair->sum_us+=diff;
 		pair->ctr--;
-		usleep(1000);
+		usleep(sleep_us);
 	}
 	sem_post(&pair->polo);
 	pair->stop_us = _now64_us();

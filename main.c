@@ -28,6 +28,7 @@ void show_help(void)
 		   "-a       --affinity      bind tasks to cores explicitly\n"
 		   "-A       --no_affinity   do not set affinity, let the scheduler move tasks\n"
 		   "-i ITER  --iterations    run threads for ITER iterations\n"
+		   "-I INTER --interval      time between each semaphore-iteration\n"
 		   "-h       --help          show this help\n"
 		   "-n CPUS  --num_cpus      test on number of cores\n"
 		   "-N CPUS  --ignore_cpus   ignore the (commaseparated) list of cpus, 0-indexed\n"
@@ -48,6 +49,7 @@ void do_options(int argc, char *argv[], struct sem_test *st)
 			{ "affinity",		optional_argument, NULL, 'a'},
 			{ "no_affinity",	optional_argument, NULL, 'A'},
 			{ "iterations", 	optional_argument, NULL, 'i'},
+			{ "interval",		optional_argument, NULL, 'I'},
 			{ "help",			optional_argument, NULL, 'h'},
 			{ "num_cpus",		optional_argument, NULL, 'n'},
 			{ "ignore_cpus",    optional_argument, NULL, 'N'},
@@ -56,7 +58,7 @@ void do_options(int argc, char *argv[], struct sem_test *st)
 			{ "event_trace",    optional_argument, NULL, 't'},
 			{ NULL, 0, NULL, 0}
 		};
-		int c = getopt_long(argc, argv, "aAhi:n:N:p:rt:", long_opts, &optidx);
+		int c = getopt_long(argc, argv, "aAhi:I:n:N:p:rt:", long_opts, &optidx);
 		if (c == -1 || err)
 			break;
 		switch(c) {
@@ -74,6 +76,11 @@ void do_options(int argc, char *argv[], struct sem_test *st)
 			if (!tmp || tmp < 0)
 				err = 1;
 			st_set_iters(st, tmp);
+			break;
+		case 'I':
+			tmp = atoi(optarg);
+			if (tmp && tmp > 0)
+				st_set_interval(st, tmp);
 			break;
 		case 'n':
 			tmp = atoi(optarg);

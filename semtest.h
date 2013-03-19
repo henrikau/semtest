@@ -33,6 +33,7 @@ void st_set_pri(struct sem_test *st, int pri);
 void st_set_policy(struct sem_test *st, int policy);
 
 void st_set_iters(struct sem_test *st, int iters);
+void st_set_interval(struct sem_test *st, int interval);
 void st_clear_cpu(struct sem_test *st, int cpu);
 void st_set_max_cpus(struct sem_test *st, int max_cpus);
 void free_sem_test(struct sem_test *);
