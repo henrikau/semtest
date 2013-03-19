@@ -70,7 +70,7 @@ struct sem_test {
 static float _find_middle(unsigned long long *list, int size);
 static void _init_sem_pair(struct sem_pair *sp);
 static uint64_t _now64_us(void);
-static void _init_cpuidx(int * cpuidx, uint32_t num_cpus);
+static int * _init_cpuidx(struct sem_test *st);
 static void _set_affinity(int cpu);
 static void _set_priority(int prio, int policy);
 static char * _pretty_print_time_us(unsigned long long diff);
@@ -180,8 +180,7 @@ void run_test(struct sem_test *st)
 
 	/* final preparations */
 	if (st->force_affinity) {
-		cpuidx = calloc(st->num_cpus, sizeof(*cpuidx));
-		_init_cpuidx(cpuidx, st->num_cpus);
+		cpuidx = _init_cpuidx(st);
 	}
 
 
@@ -306,20 +305,39 @@ static uint64_t _now64_us(void)
 }
 
 
-static void _init_cpuidx(int * cpuidx, uint32_t num_cpus)
+static int * _init_cpuidx(struct sem_test *st)
 {
+	int * cpuidx = NULL;
 	int t,i1, i2, c;
+
+	if (!st)
+		return NULL;
+
+	cpuidx = calloc(st->num_cpus, sizeof(*cpuidx));
+	if (!cpuidx)
+		return NULL;
+
 	srand(time(NULL));
-	for (c = 0; c<num_cpus; c++)
+	for (c = 0; c<st->num_cpus; c++) {
+		if (!(st->cpumask & (1<<c)))
+			continue;
 		cpuidx[c] = c;
+	}
 
 	for (c = 0; c<1000; c++) {
-		i1 = rand()%(num_cpus);
-		i2 = rand()%(num_cpus);
+		i1 = rand()%(st->num_cpus);
+		i2 = rand()%(st->num_cpus);
+
+		if (!(st->cpumask & (1<<i1)))
+			continue;
+		if (!(st->cpumask & (1<<i2)))
+			continue;
+
 		t = cpuidx[i1];
 		cpuidx[i1] = cpuidx[i2];
 		cpuidx[i2] = t;
 	}
+	return cpuidx;
 }
 
 static void _set_affinity(int cpu)
