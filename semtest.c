@@ -418,7 +418,7 @@ void * marco(void *data)
 	if (pair->idmarco > -1) {
 		_set_affinity(pair->idmarco);
 	}
-	_set_priority(pair->st->pri, pair->st->policy);
+	_set_priority(pair->st->pri -1 , pair->st->policy);
 	pair->pmarco = gettid();
 	pair->start_us = _now64_us();
 	while(pair->ctr > 0) {
