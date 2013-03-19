@@ -224,14 +224,17 @@ void print_summary(struct sem_test * st)
 
 	printf("Summary of %d iterations\n", st->iters);
 	for (;c<st->num_cpus;c++) {
+		float tavg = 0.0f;
 		if (!(st->cpumask & (1<<c)))
 			continue;
-		printf("P: %2d,%2d\tPri: %d\tMax:\t%8llu\tMin:\t%8llu\n",
+		tavg = (float)st->sp[c].sum_us *1.0f / st->iters;
+		printf("P: %2d,%2d\tPri: %d\tMax:\t%8llu\tMin:\t%8llu\tAvg:\t%8.4f\n",
 			   st->sp[c].idmarco,
 			   st->sp[c].idpolo,
 			   st->pri,
 			   st->sp[c].max_us,
-			   st->sp[c].min_us);
+			   st->sp[c].min_us,
+			   tavg);
 		max_us_sum += st->sp[c].max_us;
 		min_us_sum += st->sp[c].min_us;
 		max_us_list[c] = st->sp[c].max_us;
