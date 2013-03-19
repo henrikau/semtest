@@ -62,7 +62,7 @@ struct sem_test {
 	unsigned long long start;
 	unsigned long long end;
 	unsigned char force_affinity;
-
+	unsigned long long cpumask;
 	struct sem_pair sp[0];
 };
 
@@ -94,13 +94,14 @@ struct sem_test * create_sem_test(uint32_t num_cpus,
 	/* set default values */
 	st->num_cpus = num_cpus;
 	st->trace_on = 0;
-	st->policy = policy;
+	st->policy = SCHED_OTHER;
 	st->pri = 0;
 	st->force_affinity = 1;
+	st->iters = 10000;
+	st->cpumask = -1;
 	for (i=0;i<st->num_cpus;i++) {
 		_init_sem_pair(&st->sp[i]);
 	}
-
 	return st;
 }
 
@@ -124,10 +125,37 @@ void st_set_pri(struct sem_test *st, int pri)
 	st->pri = pri;
 }
 
-void free_sem_test(struct sem_test *sp)
+void st_set_policy(struct sem_test *st, int policy)
 {
-	if (sp) {
-		free(sp);
+	if (!st)
+		return;
+	st->policy = policy;
+}
+void st_set_iters(struct sem_test *st, int iters)
+{
+	if (!st)
+		return;
+	st->iters = iters;
+}
+
+void st_clear_cpu(struct sem_test *st, int cpu)
+{
+	if (!st)
+		return;
+	if (cpu >= 0 && cpu < st->num_cpus)
+		st->cpumask &= ~(1<<cpu);
+}
+
+void st_set_max_cpus(struct sem_test *st, int max_cpus)
+{
+	if (!st)
+		return;
+	st->num_cpus = max_cpus;
+}
+void free_sem_test(struct sem_test *st)
+{
+	if (st) {
+		free(st);
 	}
 }
 
@@ -143,7 +171,7 @@ void enable_tracing(struct sem_test *st, signed long trace_limit_us)
 	st->trace_on = 1;
 }
 
-void run_test(struct sem_test *st, uint32_t iters)
+void run_test(struct sem_test *st)
 {
 	int c = 0;
 	int * cpuidx = NULL;
@@ -156,28 +184,34 @@ void run_test(struct sem_test *st, uint32_t iters)
 		_init_cpuidx(cpuidx, st->num_cpus);
 	}
 
-	st->iters = iters;
+
 	for (c=0;c<st->num_cpus;c++) {
-		st->sp[c].ctr = iters;
+		if (!(st->cpumask & (1<<c)))
+			continue;
+		st->sp[c].ctr = st->iters;
 		if ((st->policy == SCHED_RR || st->policy == SCHED_FIFO) &&
 			st->pri > 0 && st->pri < 99) {
 			st->sp[c].policy = st->policy;
 			st->sp[c].prio = st->pri;
-			if (st->force_affinity && cpuidx) {
-				st->sp[c].idmarco = c;
-				st->sp[c].idpolo = cpuidx[c];
-			}
+		}
+		if (st->force_affinity && cpuidx) {
+			st->sp[c].idmarco = c;
+			st->sp[c].idpolo = cpuidx[c];
 		}
 	}
 
 	/* run */
 	st->start = _now64_us();
 	for (c=0;c<st->num_cpus;c++) {
+		if (!(st->cpumask & (1<<c)))
+			continue;
 		pthread_create(&st->sp[c].tpolo, NULL,  polo, (void *)&st->sp[c]);
 		pthread_create(&st->sp[c].tmarco, NULL, marco, (void *)&st->sp[c]);
 	}
 	/* join */
 	for (c=0;c<st->num_cpus;c++) {
+		if (!(st->cpumask & (1<<c)))
+			continue;
 		pthread_join(st->sp[c].tpolo, NULL);
 		pthread_join(st->sp[c].tmarco, NULL);
 	}
@@ -196,6 +230,8 @@ void print_summary(struct sem_test * st)
 
 	printf("Summary of %d iterations\n", st->iters);
 	for (;c<st->num_cpus;c++) {
+		if (!(st->cpumask & (1<<c)))
+			continue;
 		printf("P: %2d,%2d\tPri: %d\tMax:\t%8llu\tMin:\t%8llu\n",
 			   st->sp[c].idmarco,
 			   st->sp[c].idpolo,
@@ -294,6 +330,7 @@ static void _init_cpuidx(int * cpuidx, uint32_t num_cpus)
 		cpuidx[i2] = t;
 	}
 }
+
 static void _set_affinity(int cpu)
 {
 	cpu_set_t mask;

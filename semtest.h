@@ -24,19 +24,22 @@
 struct semtest;
 
 
-struct sem_test * create_sem_test(uint32_t num_cpus,
-								  int policy);
+struct sem_test * create_sem_test(uint32_t num_cpus);
 
 void st_set_affinity(struct sem_test *st);
 void st_clear_affinity(struct sem_test *st);
 
 void st_set_pri(struct sem_test *st, int pri);
+void st_set_policy(struct sem_test *st, int policy);
 
+void st_set_iters(struct sem_test *st, int iters);
+void st_clear_cpu(struct sem_test *st, int cpu);
+void st_set_max_cpus(struct sem_test *st, int max_cpus);
 void free_sem_test(struct sem_test *);
-
 void enable_tracing(struct sem_test *st, signed long trace_limit_us);
 
-void run_test(struct sem_test *st, uint32_t iters);
+
+void run_test(struct sem_test *st);
 
 void print_summary(struct sem_test * st);
 
