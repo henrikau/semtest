@@ -65,6 +65,7 @@ struct sem_test {
 
 	unsigned long trace_limit_us;
 	unsigned char trace_on;
+	unsigned char quiet;
 	struct sem_pair sp[0];
 };
 
@@ -103,6 +104,7 @@ struct sem_test * create_sem_test(uint32_t num_cpus,
 	st->iters = 10000;
 	st->interval_us = 10000;		/* 10 ms */
 	st->cpumask = -1;
+	st->quiet = 0;
 	for (i=0;i<st->num_cpus;i++) {
 		st->sp[i].st = st;
 		_init_sem_pair(&st->sp[i]);
@@ -164,6 +166,14 @@ void st_set_max_cpus(struct sem_test *st, int max_cpus)
 		return;
 	st->num_cpus = max_cpus;
 }
+
+void st_set_quiet(struct sem_test *st)
+{
+	if (!st)
+		return;
+	st->quiet = 1;
+}
+
 void free_sem_test(struct sem_test *st)
 {
 	if (st) {
@@ -233,17 +243,20 @@ void print_summary(struct sem_test * st)
 
 	printf("Summary of %d iterations\n", st->iters);
 	for (;c<st->num_cpus;c++) {
+
 		float tavg = 0.0f;
 		if (!(st->cpumask & (1<<c)))
 			continue;
 		tavg = (float)st->sp[c].sum_us *1.0f / st->iters;
-		printf("P: %2d,%2d\tPri: %d\tMax:\t%8llu\tMin:\t%8llu\tAvg:\t%8.4f\n",
-			   st->sp[c].idmarco,
-			   st->sp[c].idpolo,
-			   st->pri,
-			   st->sp[c].max_us,
-			   st->sp[c].min_us,
-			   tavg);
+		if (!st->quiet) {
+			printf("P: %2d,%2d\tPri: %d\tMax:\t%8llu\tMin:\t%8llu\tAvg:\t%8.4f\n",
+				   st->sp[c].idmarco,
+				   st->sp[c].idpolo,
+				   st->pri,
+				   st->sp[c].max_us,
+				   st->sp[c].min_us,
+				   tavg);
+		}
 		max_us_sum += st->sp[c].max_us;
 		min_us_sum += st->sp[c].min_us;
 		max_us_list[c] = st->sp[c].max_us;

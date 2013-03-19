@@ -35,6 +35,7 @@ void show_help(void)
 		   "-p PRIO  --priority      run with given (real-time) priority\n"
 		   "-r       --policy_rr     use SCHED_RR instead of the default SCHED_FIFO for rt-priorities\n"
 		   "-t LIMIT --event_trace   enable event-tracing when running, tag occurences exceeding LIMIT us\n"
+		   "-q		 --quiet	     limit output to summary only\n"
 		   "\n"
 		);
 }
@@ -56,9 +57,10 @@ void do_options(int argc, char *argv[], struct sem_test *st)
 			{ "priority",		optional_argument, NULL, 'p'},
 			{ "policy_rr",		optional_argument, NULL, 'r'},
 			{ "event_trace",    optional_argument, NULL, 't'},
+			{ "quiet",			optional_argument, NULL, 'q'},
 			{ NULL, 0, NULL, 0}
 		};
-		int c = getopt_long(argc, argv, "aAhi:I:n:N:p:rt:", long_opts, &optidx);
+		int c = getopt_long(argc, argv, "aAhi:I:n:N:p:rt:q", long_opts, &optidx);
 		if (c == -1 || err)
 			break;
 		switch(c) {
@@ -106,6 +108,9 @@ void do_options(int argc, char *argv[], struct sem_test *st)
 			if (tmp > 0) {
 				enable_tracing(st, tmp);
 			}
+			break;
+		case 'q':
+			st_set_quiet(st);
 			break;
 		default:
 			/* fixme; error */

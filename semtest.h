@@ -36,6 +36,7 @@ void st_set_iters(struct sem_test *st, int iters);
 void st_set_interval(struct sem_test *st, int interval);
 void st_clear_cpu(struct sem_test *st, int cpu);
 void st_set_max_cpus(struct sem_test *st, int max_cpus);
+void st_set_quiet(struct sem_test *st);
 void free_sem_test(struct sem_test *);
 void enable_tracing(struct sem_test *st, signed long trace_limit_us);
 
