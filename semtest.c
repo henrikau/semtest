@@ -61,6 +61,8 @@ struct sem_test {
 	int prio;
 	unsigned long long start;
 	unsigned long long end;
+	unsigned char force_affinity;
+
 	struct sem_pair sp[0];
 };
 
@@ -77,7 +79,6 @@ void * polo(void *data);
 void * marco(void *data);
 
 struct sem_test * create_sem_test(uint32_t num_cpus,
-								  uint8_t set_affinity,
 								  int policy,
 								  int prio)
 {
@@ -90,25 +91,33 @@ struct sem_test * create_sem_test(uint32_t num_cpus,
 		perror("create_sem_test() Could not allocate memory for sem_test");
 		return NULL;
 	}
+
+	/* set default values */
 	st->num_cpus = num_cpus;
 	st->trace_on = 0;
 	st->policy = policy;
 	st->prio = prio;
+	st->force_affinity = 1;
 	for (i=0;i<st->num_cpus;i++) {
 		_init_sem_pair(&st->sp[i]);
 	}
-	if (set_affinity) {
-		int * cpuidx = calloc(num_cpus, sizeof(*cpuidx));
-		if (cpuidx) {
-			_init_cpuidx(cpuidx, st->num_cpus);
-			for (i =0; i<st->num_cpus; i++) {
-				st->sp[i].idmarco = i;
-				st->sp[i].idpolo = cpuidx[i];
-			}
-		}
-	}
+
 	return st;
 }
+
+void st_set_affinity(struct sem_test *st)
+{
+	if (!st)
+		return;
+	st->force_affinity = 1;
+}
+void st_clear_affinity(struct sem_test *st)
+{
+	if (!st)
+		return;
+	st->force_affinity = 0;
+}
+
 
 void free_sem_test(struct sem_test *sp)
 {
@@ -132,10 +141,16 @@ void enable_tracing(struct sem_test *st, signed long trace_limit_us)
 void run_test(struct sem_test *st, uint32_t iters)
 {
 	int c = 0;
+	int * cpuidx = NULL;
 	if (!st)
 		return;
 
 	/* final preparations */
+	if (st->force_affinity) {
+		cpuidx = calloc(st->num_cpus, sizeof(*cpuidx));
+		_init_cpuidx(cpuidx, st->num_cpus);
+	}
+
 	st->iters = iters;
 	for (c=0;c<st->num_cpus;c++) {
 		st->sp[c].ctr = iters;
@@ -143,6 +158,10 @@ void run_test(struct sem_test *st, uint32_t iters)
 			st->prio > 0 && st->prio < 99) {
 			st->sp[c].policy = st->policy;
 			st->sp[c].prio = st->prio;
+			if (st->force_affinity && cpuidx) {
+				st->sp[c].idmarco = c;
+				st->sp[c].idpolo = cpuidx[c];
+			}
 		}
 	}
 

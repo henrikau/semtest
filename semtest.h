@@ -25,9 +25,11 @@ struct semtest;
 
 
 struct sem_test * create_sem_test(uint32_t num_cpus,
-								  uint8_t set_affinity,
 								  int policy,
 								  int prio);
+
+void st_set_affinity(struct sem_test *st);
+void st_clear_affinity(struct sem_test *st);
 
 void free_sem_test(struct sem_test *);
 
