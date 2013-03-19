@@ -130,6 +130,8 @@ void st_set_pri(struct sem_test *st, int pri)
 	if (!st)
 		return;
 	st->pri = pri;
+	if (st->policy == SCHED_OTHER)
+		st->policy = SCHED_FIFO;
 }
 
 void st_set_policy(struct sem_test *st, int policy)
