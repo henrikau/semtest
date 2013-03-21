@@ -3,16 +3,37 @@
 A very hackish test for measuring the latency of (posix) semaphores on a
 Linux system.
 
-It will create a set of thread-pairs. The latency for
-semaphore-synchronization is measured and some (meaningful) statistics
-is printed at the end fo the testrun.
+It will create a set of thread-pairs, each with its own semaphore.
+Thread A (called marco) start by tagging the time, then it will up a
+semaphore thread B (called polo...) is blocked on before waiting on its
+own semaphore. Once polo is awoken, it will immediately up marco's
+semaphore before blocking on its own semaphore. This will in turn lead
+to marco being woken up. Marco will the
+
+[ marco ]               [ polo ]
+   |                       *  // block on sem_polo
+   | //tag time
+   | // up sem_polo        | // awoken on sem_polo
+   * // block on sem_marco | // up sem_marco
+                           * // block on sem_polo
+   | // awoken on sem_marco
+   | // tag time
+   | // sleep
+   < // goto beginning of loop
+
+It is also possible to hook into the kernel ftrace subsystem by
+injecting tags when a target threshold is exceeded. Combining this with
+kernelshark opens up for a good way of finding issues.
 
 ## Compile
 
 sudo apt-get install build-essentials
 make
 
-## Run
+To cross-compile, run make with the CROSS_COMPILE-switch:
+make CROSS_COMPILE=arch-
+
+## Running semtest
 
 ./semtest -h
 Usage:
@@ -21,10 +42,13 @@ semtest <options>
 -a       --affinity      bind tasks to cores explicitly
 -A       --no_affinity   do not set affinity, let the scheduler move tasks
 -i ITER  --iterations    run threads for ITER iterations
+-I INTER --interval      time between each semaphore-iteration
 -h       --help          show this help
 -n CPUS  --num_cpus      test on number of cores
+-N CPUS  --ignore_cpus   ignore the (commaseparated) list of cpus, 0-indexed
 -p PRIO  --priority      run with given (real-time) priority
 -r       --policy_rr     use SCHED_RR instead of the default SCHED_FIFO for rt-priorities
+-t LIMIT --event_trace   enable event-tracing when running, tag occurences exceeding LIMIT us
 
 
 # On an idle system with 4 cores + HT (Intel E5620, CentOS 6.3, Linux
