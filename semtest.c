@@ -17,6 +17,7 @@
  */
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <errno.h>
 #include <inttypes.h>
 #include <semaphore.h>
@@ -232,10 +233,22 @@ void run_test(struct sem_test *st)
 	}
 	st->end = _now64_us();
 }
-
+static inline char * _get_policy_str(int policy)
+{
+	switch(policy) {
+	case SCHED_OTHER:
+		return "SCHED_OTHER";
+	case SCHED_FIFO:
+		return "SCHED_FIFO";
+	case SCHED_RR:
+		return "SCHED_RR";
+	}
+	return "UNKNOWN";
+}
 void print_summary(struct sem_test * st)
 {
 	int c = 0;
+	char divider[90];
 	unsigned long long max_us = 0;
 	unsigned long long min_us = 0;
 	unsigned long long max_us_sum = 0;
@@ -243,7 +256,16 @@ void print_summary(struct sem_test * st)
 	unsigned long long *max_us_list = calloc(st->num_cpus, sizeof(unsigned long long));
 	unsigned long long *min_us_list = calloc(st->num_cpus, sizeof(unsigned long long));
 
-	printf("Summary of %d iterations\n", st->iters);
+	memset(&divider, '-', 88);
+	if (!st->quiet) {
+		printf("Summary of %d iterations\n", st->iters);
+		printf("Priority:\t%d\n", st->pri);
+		printf("Policy:\t\t%s\n", _get_policy_str(st->policy));
+		printf("Interval:\t%lu us\n", st->trace_limit_us);
+		printf("Force affinity:\t%s\n", (st->force_affinity ? "On" : "Off"));
+		printf("%s\n", divider);
+	}
+
 	for (;c<st->num_cpus;c++) {
 
 		float tavg = 0.0f;
@@ -390,6 +412,9 @@ static void _set_priority(int prio, int policy)
 	if (err) {
 		fprintf(stderr, "Could not set priority for %ld\n", gettid());
 		perror(NULL);
+	}
+	if (sched_getscheduler(0) != policy) {
+		fprintf(stderr, "Error setting policy for %ld\n", gettid());
 	}
 }
 
