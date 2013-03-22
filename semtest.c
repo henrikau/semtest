@@ -261,7 +261,7 @@ void print_summary(struct sem_test * st)
 		printf("Summary of %d iterations\n", st->iters);
 		printf("Priority:\t%d\n", st->pri);
 		printf("Policy:\t\t%s\n", _get_policy_str(st->policy));
-		printf("Interval:\t%lu us\n", st->trace_limit_us);
+		printf("Interval:\t%u us\n", st->interval_us);
 		printf("Force affinity:\t%s\n", (st->force_affinity ? "On" : "Off"));
 		printf("%s\n", divider);
 	}
