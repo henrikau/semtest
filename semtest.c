@@ -475,7 +475,7 @@ void * marco(void *data)
 			pair->max_us = diff;
 		if (diff < pair->min_us)
 			pair->min_us = diff;
-		if (diff > tlus) {
+		if (tlus && diff > tlus) {
 			FILE *fd = NULL;
 			fd = fopen("/sys/kernel/debug/tracing/trace_marker", "w+");
 			if (fd) {
