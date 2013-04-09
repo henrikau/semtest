@@ -23,3 +23,6 @@ all: $(TARGET)
 
 clean:
 	rm -f $(TARGET) *.o
+
+mrproper: clean
+	rm -f *~
