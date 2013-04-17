@@ -66,6 +66,7 @@ struct sem_test {
 
 	unsigned long trace_limit_us;
 	unsigned char trace_on;
+	unsigned char print_pid;
 	unsigned char quiet;
 	struct sem_pair sp[0];
 };
@@ -98,6 +99,7 @@ struct sem_test * create_sem_test(uint32_t num_cpus,
 	/* set default values */
 	st->num_cpus = num_cpus;
 	st->trace_on = 0;
+	st->print_pid = 0;
 	st->trace_limit_us = -1;
 	st->policy = SCHED_OTHER;
 	st->pri = 0;
@@ -193,6 +195,13 @@ void enable_tracing(struct sem_test *st, signed long trace_limit_us)
 	st->trace_on = 1;
 }
 
+void st_print_pids(struct sem_test *st)
+{
+	if(!st)
+		return;
+	st->print_pid = 1;
+}
+
 void run_test(struct sem_test *st)
 {
 	int c = 0;
@@ -221,8 +230,22 @@ void run_test(struct sem_test *st)
 	for (c=0;c<st->num_cpus;c++) {
 		if (!(st->cpumask & (1<<c)))
 			continue;
-		pthread_create(&st->sp[c].tpolo, NULL,  polo, (void *)&st->sp[c]);
-		pthread_create(&st->sp[c].tmarco, NULL, marco, (void *)&st->sp[c]);
+		if (pthread_create(&st->sp[c].tpolo, NULL,  polo, (void *)&st->sp[c]) ||
+			pthread_create(&st->sp[c].tmarco, NULL, marco, (void *)&st->sp[c])) {
+			perror("Error creating threads for Marco or Polo");
+			continue;
+		}
+	}
+	if (st->print_pid) {
+		printf("Listing TIDs of marco & polo\n");
+		for (c=0;c<st->num_cpus;c++) {
+			if (st->sp[c].pmarco && st->sp[c].ppolo) {
+				printf("%d\n%d\n",
+					   (int)st->sp[c].ppolo,
+					   (int)st->sp[c].pmarco);
+			}
+		}
+		fflush(stdout);
 	}
 	/* join */
 	for (c=0;c<st->num_cpus;c++) {

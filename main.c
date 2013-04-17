@@ -33,6 +33,7 @@ void show_help(void)
 		   "-n CPUS  --num_cpus      test on number of cores\n"
 		   "-N CPUS  --ignore_cpus   ignore the (commaseparated) list of cpus, 0-indexed\n"
 		   "-p PRIO  --priority      run with given (real-time) priority\n"
+		   "-P       --pid           print pid (or tid) of all marco-polo pair\n"
 		   "-r       --policy_rr     use SCHED_RR instead of the default SCHED_FIFO for rt-priorities\n"
 		   "-t LIMIT --event_trace   enable event-tracing when running, tag occurences exceeding LIMIT us\n"
 		   "-q		 --quiet	     limit output to summary only\n"
@@ -55,12 +56,13 @@ void do_options(int argc, char *argv[], struct sem_test *st)
 			{ "num_cpus",		optional_argument, NULL, 'n'},
 			{ "ignore_cpus",    optional_argument, NULL, 'N'},
 			{ "priority",		optional_argument, NULL, 'p'},
+			{ "pid",            optional_argument, NULL, 'P'},
 			{ "policy_rr",		optional_argument, NULL, 'r'},
 			{ "event_trace",    optional_argument, NULL, 't'},
 			{ "quiet",			optional_argument, NULL, 'q'},
 			{ NULL, 0, NULL, 0}
 		};
-		int c = getopt_long(argc, argv, "aAhi:I:n:N:p:rt:q", long_opts, &optidx);
+		int c = getopt_long(argc, argv, "aAhi:I:n:N:p:Prt:q", long_opts, &optidx);
 		if (c == -1 || err)
 			break;
 		switch(c) {
@@ -99,6 +101,9 @@ void do_options(int argc, char *argv[], struct sem_test *st)
 				err = 1;
 			else
 				st_set_pri(st, tmp);
+			break;
+		case 'P':
+			st_print_pids(st);
 			break;
 		case 'r':
 			st_set_policy(st, SCHED_RR);
