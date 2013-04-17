@@ -248,7 +248,7 @@ static inline char * _get_policy_str(int policy)
 void print_summary(struct sem_test * st)
 {
 	int c = 0;
-	char divider[90];
+	char divider[90] = {0};
 	unsigned long long max_us = 0;
 	unsigned long long min_us = 0;
 	unsigned long long max_us_sum = 0;
