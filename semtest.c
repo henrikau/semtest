@@ -350,11 +350,14 @@ void print_graph_output(struct sem_test * st)
 	int c = 0;
 	int i = 0;
 	for (c=0; c < st->num_cpus; c++) {
-		if (!(st->cpumask & (1<<c)))
-			continue;
-		printf("%d", c);
-		for (i=0;i<st->iters;i++) {
-			printf(" %llu", st->sp[c].diffs[i]);
+		if (!(st->cpumask & (1<<c))) {
+			for (i=0;i<st->iters;i++) {
+				printf(" 0");
+			}
+		} else {
+			for (i=0;i<st->iters;i++) {
+				printf(" %llu", st->sp[c].diffs[i]);
+			}
 		}
 		printf("\n");
 	}
