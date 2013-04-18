@@ -41,6 +41,7 @@ void free_sem_test(struct sem_test *);
 void enable_tracing(struct sem_test *st, signed long trace_limit_us);
 void st_print_pids(struct sem_test *st);
 void set_graph_output(struct sem_test *st);
+void set_grouped_mode(struct sem_test *st);
 
 void run_test(struct sem_test *st);
 

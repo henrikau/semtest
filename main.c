@@ -30,6 +30,7 @@ void show_help(void)
 		   "-i ITER  --iterations    run threads for ITER iterations\n"
 		   "-I INTER --interval      time between each semaphore-iteration\n"
 		   "-g       --graph         dump output eatable by a graphing tool\n"
+		   "-G       --group         Group semaphore master and slave on same core\n"
 		   "-h       --help          show this help\n"
 		   "-n CPUS  --num_cpus      test on number of cores\n"
 		   "-N CPUS  --ignore_cpus   ignore the (commaseparated) list of cpus, 0-indexed\n"
@@ -54,6 +55,7 @@ void do_options(int argc, char *argv[], struct sem_test *st)
 			{ "iterations", 	optional_argument, NULL, 'i'},
 			{ "interval",		optional_argument, NULL, 'I'},
 			{ "graph",          optional_argument, NULL, 'g'},
+			{ "group",          optional_argument, NULL, 'G'},
 			{ "help",			optional_argument, NULL, 'h'},
 			{ "num_cpus",		optional_argument, NULL, 'n'},
 			{ "ignore_cpus",    optional_argument, NULL, 'N'},
@@ -64,7 +66,7 @@ void do_options(int argc, char *argv[], struct sem_test *st)
 			{ "quiet",			optional_argument, NULL, 'q'},
 			{ NULL, 0, NULL, 0}
 		};
-		int c = getopt_long(argc, argv, "aAghi:I:n:N:p:Prt:q", long_opts, &optidx);
+		int c = getopt_long(argc, argv, "aAgGhi:I:n:N:p:Prt:q", long_opts, &optidx);
 		if (c == -1 || err)
 			break;
 		switch(c) {
@@ -90,6 +92,9 @@ void do_options(int argc, char *argv[], struct sem_test *st)
 			break;
 		case 'g':
 			set_graph_output(st);
+			break;
+		case 'G':
+			set_grouped_mode(st);
 			break;
 		case 'n':
 			tmp = atoi(optarg);

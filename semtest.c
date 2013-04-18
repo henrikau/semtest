@@ -69,6 +69,7 @@ struct sem_test {
 	unsigned char trace_on;
 	unsigned char print_pid;
 	unsigned char graph_output;
+	unsigned char group_pair;
 	unsigned char quiet;
 	struct sem_pair sp[0];
 };
@@ -103,6 +104,7 @@ struct sem_test * create_sem_test(uint32_t num_cpus,
 	st->trace_on = 0;
 	st->print_pid = 0;
 	st->graph_output = 0;
+	st->group_pair = 0;
 	st->trace_limit_us = -1;
 	st->policy = SCHED_OTHER;
 	st->pri = 0;
@@ -216,6 +218,13 @@ void set_graph_output(struct sem_test *st)
 		return;
 	st->graph_output = 1;
 	st->quiet = 1;
+}
+
+void set_grouped_mode(struct sem_test *st)
+{
+	if (!st)
+		return;
+	st->group_pair = 1;
 }
 
 void run_test(struct sem_test *st)
@@ -340,7 +349,7 @@ void print_graph_output(struct sem_test * st)
 {
 	int c = 0;
 	int i = 0;
-	for (c;c<st->num_cpus;c++) {
+	for (c=0; c < st->num_cpus; c++) {
 		if (!(st->cpumask & (1<<c)))
 			continue;
 		printf("%d", c);
@@ -444,6 +453,10 @@ static int * _init_cpuidx(struct sem_test *st)
 			continue;
 		cpuidx[c] = c;
 	}
+
+	/* If we want to group marco & polo on the same core, do not randomize */
+	if (st->group_pair)
+		return cpuidx;
 
 	for (c = 0; c<1000; c++) {
 		i1 = rand()%(st->num_cpus);
