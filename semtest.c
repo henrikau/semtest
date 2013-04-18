@@ -51,6 +51,7 @@ struct sem_pair {
 	unsigned long long min_us;
 	uint64_t sum_us;
 	uint64_t ctr;
+	unsigned long long *diffs;
 };
 
 struct sem_test {
@@ -67,6 +68,7 @@ struct sem_test {
 	unsigned long trace_limit_us;
 	unsigned char trace_on;
 	unsigned char print_pid;
+	unsigned char graph_output;
 	unsigned char quiet;
 	struct sem_pair sp[0];
 };
@@ -100,6 +102,7 @@ struct sem_test * create_sem_test(uint32_t num_cpus,
 	st->num_cpus = num_cpus;
 	st->trace_on = 0;
 	st->print_pid = 0;
+	st->graph_output = 0;
 	st->trace_limit_us = -1;
 	st->policy = SCHED_OTHER;
 	st->pri = 0;
@@ -181,7 +184,13 @@ void st_set_quiet(struct sem_test *st)
 
 void free_sem_test(struct sem_test *st)
 {
+	int c = 0;
 	if (st) {
+		for (c=0;c<st->num_cpus;c++) {
+			if (st->sp[c].diffs) {
+				free(st->sp[c].diffs);
+			}
+		}
 		free(st);
 	}
 }
@@ -201,6 +210,13 @@ void st_print_pids(struct sem_test *st)
 		return;
 	st->print_pid = 1;
 }
+void set_graph_output(struct sem_test *st)
+{
+	if(!st)
+		return;
+	st->graph_output = 1;
+	st->quiet = 1;
+}
 
 void run_test(struct sem_test *st)
 {
@@ -218,10 +234,15 @@ void run_test(struct sem_test *st)
 	for (c=0;c<st->num_cpus;c++) {
 		if (!(st->cpumask & (1<<c)))
 			continue;
-		st->sp[c].ctr = st->iters;
+		struct sem_pair *sp = &st->sp[c];
+
+		sp->ctr = st->iters;
 		if (st->force_affinity && cpuidx) {
-			st->sp[c].idmarco = c;
-			st->sp[c].idpolo = cpuidx[c];
+			sp->idmarco = c;
+			sp->idpolo = cpuidx[c];
+		}
+		if (st->graph_output) {
+			sp->diffs = malloc(sizeof(unsigned long long) * st->iters);
 		}
 	}
 
@@ -270,26 +291,15 @@ static inline char * _get_policy_str(int policy)
 	}
 	return "UNKNOWN";
 }
-void print_summary(struct sem_test * st)
+void print_normal(struct sem_test * st)
 {
 	int c = 0;
-	char divider[90] = {0};
 	unsigned long long max_us = 0;
 	unsigned long long min_us = 0;
 	unsigned long long max_us_sum = 0;
 	unsigned long long min_us_sum = 0;
 	unsigned long long *max_us_list = calloc(st->num_cpus, sizeof(unsigned long long));
 	unsigned long long *min_us_list = calloc(st->num_cpus, sizeof(unsigned long long));
-
-	memset(&divider, '-', 88);
-	if (!st->quiet) {
-		printf("Summary of %d iterations\n", st->iters);
-		printf("Priority:\t%d\n", st->pri);
-		printf("Policy:\t\t%s\n", _get_policy_str(st->policy));
-		printf("Interval:\t%u us\n", st->interval_us);
-		printf("Force affinity:\t%s\n", (st->force_affinity ? "On" : "Off"));
-		printf("%s\n", divider);
-	}
 
 	for (;c<st->num_cpus;c++) {
 
@@ -323,10 +333,46 @@ void print_summary(struct sem_test * st)
 		   max_us, (float)max_us_sum/st->num_cpus, _find_middle(max_us_list, st->num_cpus));
 	printf("(Min) Global: %12llu us\avg: %.4f us\tmiddle: %f\n",
 		   min_us, (float)min_us_sum/st->num_cpus, _find_middle(min_us_list, st->num_cpus));
-	/* fixme memleak from pretty_print */
 	printf("Test took %s to complete\n", _pretty_print_time_us( (unsigned long long)(st->end - st->start)));
 }
 
+void print_graph_output(struct sem_test * st)
+{
+	int c = 0;
+	int i = 0;
+	for (c;c<st->num_cpus;c++) {
+		if (!(st->cpumask & (1<<c)))
+			continue;
+		printf("%d", c);
+		for (i=0;i<st->iters;i++) {
+			printf(" %llu", st->sp[c].diffs[i]);
+		}
+		printf("\n");
+	}
+}
+
+void print_summary(struct sem_test * st)
+{
+	char divider[90] = {0};
+	if (!st)
+		return;
+
+	if (st->graph_output) {
+		print_graph_output(st);
+	} else {
+		memset(&divider, '-', 88);
+		if (!st->quiet) {
+			printf("Summary of %d iterations\n", st->iters);
+			printf("Priority:\t%d\n", st->pri);
+			printf("Policy:\t\t%s\n", _get_policy_str(st->policy));
+			printf("Interval:\t%u us\n", st->interval_us);
+			printf("Force affinity:\t%s\n", (st->force_affinity ? "On" : "Off"));
+			printf("%s\n", divider);
+		}
+
+		print_normal(st);
+	}
+}
 
 static float _find_middle(unsigned long long *list, int size)
 {
@@ -369,6 +415,7 @@ static void _init_sem_pair(struct sem_pair *sp)
 	sp->idpolo = -1;
 	sp->min_us = -1;
 	sp->max_us = 0;
+	sp->diffs = NULL;
 }
 
 static uint64_t _now64_us(void)
@@ -493,15 +540,12 @@ void * marco(void *data)
 	if (pair->st->print_pid) {
 		usleep(5000000);
 	}
-
 	pair->start_us = _now64_us();
 	while(pair->ctr > 0) {
-		/* printf("[SENDER >] signaling reader, waiting for reply\n"); */
+
 		start = _now64_us();
 		sem_post(&pair->polo);
-		/* printf("[SENDER >] message sent, awaiting reply eagerly\n"); */
 		sem_wait(&pair->marco);
-		/* printf("[SENDER >] Got msg, do the accounting\n"); */
 		stop = _now64_us();
 		diff = stop-start;
 
@@ -520,6 +564,11 @@ void * marco(void *data)
 		}
 		pair->sum_us+=diff;
 		pair->ctr--;
+		/* Note: this will collect the data backwards, but that should not
+		 * really matter as we're not constructing a timeline*/
+		if (pair->diffs) {
+			pair->diffs[pair->ctr] = diff;
+		}
 		usleep(sleep_us);
 	}
 	sem_post(&pair->polo);
