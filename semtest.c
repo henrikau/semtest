@@ -264,7 +264,6 @@ void run_test(struct sem_test *st)
 	}
 
 	/* run */
-	st->start = _now64_us();
 	for (c=0;c<st->num_cpus;c++) {
 		if (!CPU_ISSET(c, &st->cpumask))
 			continue;
@@ -275,9 +274,12 @@ void run_test(struct sem_test *st)
 		}
 	}
 
- 	if (st->print_pid) {
+ 	if (st->print_pid && !st->quiet) {
 		printf("Listing TIDs of marco & polo\n");
 		for (c=0;c<st->num_cpus;c++) {
+			while (!st->sp[c].pmarco || !st->sp[c].ppolo) {
+				usleep(1000);
+			}
 			if (st->sp[c].pmarco && st->sp[c].ppolo) {
 				printf("%d %d ",
 					   (int)st->sp[c].ppolo,
@@ -288,6 +290,7 @@ void run_test(struct sem_test *st)
 		fflush(stdout);
 	}
 
+	st->start = _now64_us();
 	for (c=0;c<st->num_cpus;c++) {
 		if (!CPU_ISSET(c, &st->cpumask))
 			continue;
@@ -564,15 +567,12 @@ void * marco(void *data)
 	_set_priority(pair->st->pri -1 , pair->st->policy);
 	pair->pmarco = gettid();
 
-	/* if we're going to print the pid/tid, add a sync here and let master
-	 * thread print the values before we contine.
-	 * 100ms _should_ be enough
-	 */
-	if (pair->st->print_pid) {
-		usleep(5000000);
-	}
+	/* wait for master to get ready, use this to synchronize, sleep 1ms in between */
+	while(!pair->st->start)
+		usleep(100);
+
 	pair->start_us = _now64_us();
-	while(pair->ctr > 0) {
+	while(pair->ctr > 0 && !pair->st->end) {
 
 		start = _now64_us();
 		sem_post(&pair->polo);
