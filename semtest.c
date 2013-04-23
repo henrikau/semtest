@@ -102,19 +102,22 @@ struct sem_test * create_sem_test(uint32_t num_cpus,
 
 	/* set default values */
 	st->num_cpus = num_cpus;
+	st->iters = 10000;
+	st->interval_us = 10000;		/* 10 ms */
+	st->policy = SCHED_OTHER;
+	st->pri = 0;
+	st->start = 0;
+	st->end = 0;
+	st->force_affinity = 1;		/* default to force affinity, task migration
+								 * considered harmful */
+	sched_getaffinity(getpid(), sizeof(cpu_set_t), &st->cpumask);
+	st->trace_limit_us = -1;
 	st->trace_on = 0;
 	st->print_pid = 0;
 	st->graph_output = 0;
 	st->group_pair = 0;
-	st->trace_limit_us = -1;
-	st->policy = SCHED_OTHER;
-	st->pri = 0;
-	st->force_affinity = 1;
-	st->iters = 10000;
-	st->interval_us = 10000;		/* 10 ms */
-	sched_getaffinity(getpid(), sizeof(cpu_set_t), &st->cpumask);
-
 	st->quiet = 0;
+
 	for (i=0;i<st->num_cpus;i++) {
 		st->sp[i].st = st;
 		_init_sem_pair(&st->sp[i]);
@@ -164,9 +167,9 @@ void st_set_interval(struct sem_test *st, int interval)
 	st->interval_us = interval;
 
 }
+
 void st_clear_cpu(struct sem_test *st, int cpu)
 {
-	cpu_set_t set;
 	if (!st)
 		return;
 	if (cpu < 0 || cpu > st->num_cpus)
@@ -428,12 +431,12 @@ static void _init_sem_pair(struct sem_pair *sp)
 	if (!sp) {
 		return;
 	}
-	sem_init(&sp->marco, 0, 0);
-	sem_init(&sp->polo, 0, 0);
+	/* per default, all values in sp[] is 0 from calloc */
 	sp->idmarco = -1;
 	sp->idpolo = -1;
+	sem_init(&sp->marco, 0, 0);
+	sem_init(&sp->polo, 0, 0);
 	sp->min_us = -1;
-	sp->max_us = 0;
 	sp->diffs = NULL;
 }
 
