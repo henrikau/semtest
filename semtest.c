@@ -72,6 +72,7 @@ struct sem_test {
 	unsigned char graph_output;
 	unsigned char group_pair;
 	unsigned char quiet;
+	unsigned char feather;
 	struct sem_pair sp[0];
 };
 
@@ -117,6 +118,7 @@ struct sem_test * create_sem_test(uint32_t num_cpus,
 	st->graph_output = 0;
 	st->group_pair = 0;
 	st->quiet = 0;
+	st->feather = 0;
 
 	for (i=0;i<st->num_cpus;i++) {
 		st->sp[i].st = st;
@@ -136,6 +138,17 @@ void st_clear_affinity(struct sem_test *st)
 	if (!st)
 		return;
 	st->force_affinity = 0;
+}
+
+void st_enable_feather(struct sem_test *st)
+{
+	if (!st)
+		return;
+	st->feather=1;
+	if (st->group_pair) {
+		fprintf(stderr, "WARNING: --group should not be used together with --group, disabling group\n");
+	}
+	st->group_pair = 0;
 }
 
 void st_set_pri(struct sem_test *st, int pri)
@@ -233,6 +246,10 @@ void set_grouped_mode(struct sem_test *st)
 	if (!st)
 		return;
 	st->group_pair = 1;
+	if (st->feather) {
+		fprintf(stderr, "WARNING: --feather should not be used together with --group, disabling feather\n");
+	}
+	st->feather = 0;
 }
 
 void run_test(struct sem_test *st)
@@ -254,7 +271,7 @@ void run_test(struct sem_test *st)
 		struct sem_pair *sp = &st->sp[c];
 
 		sp->ctr = st->iters;
-		if (st->force_affinity && cpuidx) {
+		if (st->force_affinity && cpuidx[c]>=0) {
 			sp->idmarco = c;
 			sp->idpolo = cpuidx[c];
 		}
@@ -265,8 +282,9 @@ void run_test(struct sem_test *st)
 
 	/* run */
 	for (c=0;c<st->num_cpus;c++) {
-		if (!CPU_ISSET(c, &st->cpumask))
+		if (!CPU_ISSET(c, &st->cpumask) || cpuidx[c]<0) {
 			continue;
+		}
 		if (pthread_create(&st->sp[c].tpolo, NULL,  polo, (void *)&st->sp[c]) ||
 			pthread_create(&st->sp[c].tmarco, NULL, marco, (void *)&st->sp[c])) {
 			perror("Error creating threads for Marco or Polo");
@@ -277,6 +295,8 @@ void run_test(struct sem_test *st)
  	if (st->print_pid && !st->quiet) {
 		printf("Listing TIDs of marco & polo\n");
 		for (c=0;c<st->num_cpus;c++) {
+			if (!CPU_ISSET(c, &st->cpumask) || cpuidx[c]<0)
+				continue;
 			while (!st->sp[c].pmarco || !st->sp[c].ppolo) {
 				usleep(1000);
 			}
@@ -292,7 +312,7 @@ void run_test(struct sem_test *st)
 
 	st->start = _now64_us();
 	for (c=0;c<st->num_cpus;c++) {
-		if (!CPU_ISSET(c, &st->cpumask))
+		if (!CPU_ISSET(c, &st->cpumask) && st->sp[c].pmarco)
 			continue;
 		pthread_join(st->sp[c].tpolo, NULL);
 		pthread_join(st->sp[c].tmarco, NULL);
@@ -325,7 +345,7 @@ void print_normal(struct sem_test * st)
 	for (;c<st->num_cpus;c++) {
 
 		float tavg = 0.0f;
-		if (!CPU_ISSET(c, &st->cpumask))
+		if (!CPU_ISSET(c, &st->cpumask) || !st->sp[c].pmarco)
 			continue;
 		tavg = (float)st->sp[c].sum_us *1.0f / st->iters;
 		if (!st->quiet) {
@@ -450,7 +470,6 @@ static uint64_t _now64_us(void)
 	return now.tv_sec * 1000000 + now.tv_nsec / 1000;
 }
 
-
 static int * _init_cpuidx(struct sem_test *st)
 {
 	int * cpuidx = NULL;
@@ -468,6 +487,7 @@ static int * _init_cpuidx(struct sem_test *st)
 
 	for (c = 0; c<st->num_cpus; c++) {
 		if (!CPU_ISSET(c, &st->cpumask)) {
+			cpuidx[c] = -1;
 			continue;
 		}
 		cpuidx[c] = c;
@@ -477,20 +497,34 @@ static int * _init_cpuidx(struct sem_test *st)
 	if (st->group_pair)
 		return cpuidx;
 
+	if (st->feather) {
+		int i = 0;
+		int j = st->num_cpus-1;
+		for (;i<st->num_cpus && i < j;i++) {
+			if (cpuidx[i]<0)
+				continue;
+			while (cpuidx[j]<0) j--;
+			cpuidx[i] = j;
+			cpuidx[j] = -1;
+			if (j<=i)
+				break;
+		}
+	}
 	/* Mix the cores */
 	srand(time(NULL));
-	for (c = 0; c<1000; c++) {
+	for (c = 0; c<1000;) {
 		i1 = rand()%(st->num_cpus);
 		i2 = rand()%(st->num_cpus);
 
-		if (!CPU_ISSET(i1, &st->cpumask))
+		if (!CPU_ISSET(i1, &st->cpumask) ||
+			!CPU_ISSET(i2, &st->cpumask) ||
+			cpuidx[i1]<0 || cpuidx[i2]<0) {
 			continue;
-		if (!CPU_ISSET(i2, &st->cpumask))
-			continue;
-
+		}
 		t = cpuidx[i1];
 		cpuidx[i1] = cpuidx[i2];
 		cpuidx[i2] = t;
+		c++;					/* only count 'valid' swaps */
 	}
 	return cpuidx;
 }

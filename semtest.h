@@ -28,6 +28,7 @@ struct sem_test * create_sem_test(uint32_t num_cpus);
 
 void st_set_affinity(struct sem_test *st);
 void st_clear_affinity(struct sem_test *st);
+void st_enable_feather(struct sem_test *st);
 
 void st_set_pri(struct sem_test *st, int pri);
 void st_set_policy(struct sem_test *st, int policy);

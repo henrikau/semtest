@@ -29,6 +29,7 @@ void show_help(void)
 		   "-A       --no_affinity   do not set affinity, let the scheduler move tasks\n"
 		   "-i ITER  --iterations    run threads for ITER iterations\n"
 		   "-I INTER --interval      time between each semaphore-iteration\n"
+		   "-F       --feather       let each task-pair have a cpu-pair exclusively\n"
 		   "-g       --graph         dump output eatable by a graphing tool\n"
 		   "-G       --group         Group semaphore master and slave on same core\n"
 		   "-h       --help          show this help\n"
@@ -54,6 +55,7 @@ void do_options(int argc, char *argv[], struct sem_test *st)
 			{ "no_affinity",	optional_argument, NULL, 'A'},
 			{ "iterations", 	optional_argument, NULL, 'i'},
 			{ "interval",		optional_argument, NULL, 'I'},
+			{ "feather",        optional_argument, NULL, 'F'},
 			{ "graph",          optional_argument, NULL, 'g'},
 			{ "group",          optional_argument, NULL, 'G'},
 			{ "help",			optional_argument, NULL, 'h'},
@@ -66,7 +68,7 @@ void do_options(int argc, char *argv[], struct sem_test *st)
 			{ "quiet",			optional_argument, NULL, 'q'},
 			{ NULL, 0, NULL, 0}
 		};
-		int c = getopt_long(argc, argv, "aAgGhi:I:n:N:p:Prt:q", long_opts, &optidx);
+		int c = getopt_long(argc, argv, "aAFgGhi:I:n:N:p:Prt:q", long_opts, &optidx);
 		if (c == -1 || err)
 			break;
 		switch(c) {
@@ -75,6 +77,9 @@ void do_options(int argc, char *argv[], struct sem_test *st)
 			break;
 		case 'A':
 			st_clear_affinity(st);
+			break;
+		case 'F':
+			st_enable_feather(st);
 			break;
 		case 'h':
 			show_help();
