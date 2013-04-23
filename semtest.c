@@ -63,7 +63,8 @@ struct sem_test {
 	unsigned long long start;
 	unsigned long long end;
 	unsigned char force_affinity;
-	unsigned long long cpumask;
+
+	cpu_set_t cpumask;
 
 	unsigned long trace_limit_us;
 	unsigned char trace_on;
@@ -111,7 +112,8 @@ struct sem_test * create_sem_test(uint32_t num_cpus,
 	st->force_affinity = 1;
 	st->iters = 10000;
 	st->interval_us = 10000;		/* 10 ms */
-	st->cpumask = -1;
+	sched_getaffinity(getpid(), sizeof(cpu_set_t), &st->cpumask);
+
 	st->quiet = 0;
 	for (i=0;i<st->num_cpus;i++) {
 		st->sp[i].st = st;
@@ -164,10 +166,13 @@ void st_set_interval(struct sem_test *st, int interval)
 }
 void st_clear_cpu(struct sem_test *st, int cpu)
 {
+	cpu_set_t set;
 	if (!st)
 		return;
-	if (cpu >= 0 && cpu < st->num_cpus)
-		st->cpumask &= ~(1<<cpu);
+	if (cpu < 0 || cpu > st->num_cpus)
+		return;
+	CPU_CLR(cpu, &st->cpumask);
+	sched_setaffinity(getpid(), sizeof(cpu_set_t), &st->cpumask);
 }
 
 void st_set_max_cpus(struct sem_test *st, int max_cpus)
@@ -234,14 +239,14 @@ void run_test(struct sem_test *st)
 	if (!st)
 		return;
 
+
 	/* final preparations */
 	if (st->force_affinity) {
 		cpuidx = _init_cpuidx(st);
 	}
 
-
 	for (c=0;c<st->num_cpus;c++) {
-		if (!(st->cpumask & (1<<c)))
+		if (!CPU_ISSET(c, &st->cpumask))
 			continue;
 		struct sem_pair *sp = &st->sp[c];
 
@@ -258,7 +263,7 @@ void run_test(struct sem_test *st)
 	/* run */
 	st->start = _now64_us();
 	for (c=0;c<st->num_cpus;c++) {
-		if (!(st->cpumask & (1<<c)))
+		if (!CPU_ISSET(c, &st->cpumask))
 			continue;
 		if (pthread_create(&st->sp[c].tpolo, NULL,  polo, (void *)&st->sp[c]) ||
 			pthread_create(&st->sp[c].tmarco, NULL, marco, (void *)&st->sp[c])) {
@@ -281,7 +286,7 @@ void run_test(struct sem_test *st)
 	}
 
 	for (c=0;c<st->num_cpus;c++) {
-		if (!(st->cpumask & (1<<c)))
+		if (!CPU_ISSET(c, &st->cpumask))
 			continue;
 		pthread_join(st->sp[c].tpolo, NULL);
 		pthread_join(st->sp[c].tmarco, NULL);
@@ -313,7 +318,7 @@ void print_normal(struct sem_test * st)
 	for (;c<st->num_cpus;c++) {
 
 		float tavg = 0.0f;
-		if (!(st->cpumask & (1<<c)))
+		if (!CPU_ISSET(c, &st->cpumask))
 			continue;
 		tavg = (float)st->sp[c].sum_us *1.0f / st->iters;
 		if (!st->quiet) {
@@ -350,7 +355,7 @@ void print_graph_output(struct sem_test * st)
 	int c = 0;
 	int i = 0;
 	for (c=0; c < st->num_cpus; c++) {
-		if (!(st->cpumask & (1<<c))) {
+		if (!CPU_ISSET(c, &st->cpumask)) {
 			for (i=0;i<st->iters;i++) {
 				printf(" 0");
 			}
@@ -450,10 +455,13 @@ static int * _init_cpuidx(struct sem_test *st)
 	if (!cpuidx)
 		return NULL;
 
-	srand(time(NULL));
+	/* make sure we have the latest and greatest cpumask */
+	sched_getaffinity(getpid(), sizeof(cpu_set_t), &st->cpumask);
+
 	for (c = 0; c<st->num_cpus; c++) {
-		if (!(st->cpumask & (1<<c)))
+		if (!CPU_ISSET(c, &st->cpumask)) {
 			continue;
+		}
 		cpuidx[c] = c;
 	}
 
@@ -461,13 +469,15 @@ static int * _init_cpuidx(struct sem_test *st)
 	if (st->group_pair)
 		return cpuidx;
 
+	/* Mix the cores */
+	srand(time(NULL));
 	for (c = 0; c<1000; c++) {
 		i1 = rand()%(st->num_cpus);
 		i2 = rand()%(st->num_cpus);
 
-		if (!(st->cpumask & (1<<i1)))
+		if (!CPU_ISSET(i1, &st->cpumask))
 			continue;
-		if (!(st->cpumask & (1<<i2)))
+		if (!CPU_ISSET(i2, &st->cpumask))
 			continue;
 
 		t = cpuidx[i1];
