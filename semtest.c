@@ -312,10 +312,10 @@ void run_test(struct sem_test *st)
 
 	st->start = _now64_us();
 	for (c=0;c<st->num_cpus;c++) {
-		if (!CPU_ISSET(c, &st->cpumask) && st->sp[c].pmarco)
-			continue;
-		pthread_join(st->sp[c].tpolo, NULL);
-		pthread_join(st->sp[c].tmarco, NULL);
+		if (st->sp[c].idpolo > -1)
+			pthread_join(st->sp[c].tpolo, NULL);
+		if (st->sp[c].idmarco > -1)
+			pthread_join(st->sp[c].tmarco, NULL);
 	}
 	st->end = _now64_us();
 }
