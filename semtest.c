@@ -308,8 +308,9 @@ static inline char * _get_policy_str(int policy)
 void print_normal(struct sem_test * st)
 {
 	int c = 0;
+	int used_cpus = 0;
 	unsigned long long max_us = 0;
-	unsigned long long min_us = 0;
+	unsigned long long min_us = -1;
 	unsigned long long max_us_sum = 0;
 	unsigned long long min_us_sum = 0;
 	unsigned long long *max_us_list = calloc(st->num_cpus, sizeof(unsigned long long));
@@ -332,21 +333,22 @@ void print_normal(struct sem_test * st)
 		}
 		max_us_sum += st->sp[c].max_us;
 		min_us_sum += st->sp[c].min_us;
-		max_us_list[c] = st->sp[c].max_us;
-		min_us_list[c] = st->sp[c].min_us;
+		max_us_list[used_cpus] = st->sp[c].max_us;
+		min_us_list[used_cpus] = st->sp[c].min_us;
 
-		if (!max_us || max_us < st->sp[c].max_us) {
+		if (max_us < st->sp[c].max_us) {
 			max_us = st->sp[c].max_us;
 		}
-		if (!min_us || min_us < st->sp[c].min_us) {
+		if (min_us > st->sp[c].min_us) {
 			min_us = st->sp[c].min_us;
 		}
+		used_cpus++;
 	}
 
-	printf("(Max) Global: %12llu us\avg: %.4f us\tmiddle: %f\n",
-		   max_us, (float)max_us_sum/st->num_cpus, _find_middle(max_us_list, st->num_cpus));
-	printf("(Min) Global: %12llu us\avg: %.4f us\tmiddle: %f\n",
-		   min_us, (float)min_us_sum/st->num_cpus, _find_middle(min_us_list, st->num_cpus));
+	printf("(Max) Global: %12llu us\tavg: %.4f us\tmiddle: %f\n",
+		   max_us, (float)max_us_sum/used_cpus, _find_middle(max_us_list, used_cpus));
+	printf("(Min) Global: %12llu us\tavg: %.4f us\tmiddle: %f\n",
+		   min_us, (float)min_us_sum/used_cpus, _find_middle(min_us_list, used_cpus));
 	printf("Test took %s to complete\n", _pretty_print_time_us( (unsigned long long)(st->end - st->start)));
 }
 
